@@ -1,5 +1,5 @@
 const Hospital = require('../models/Hospital');
-
+const Appointment = require('../models/Appointment');
 // @desc      Get all hospitals
 // @route     GET /api/v1/hospitals
 
@@ -21,7 +21,7 @@ exports.getHospitals = async (req, res, next) => {
     //create query string
     let queryStr = JSON.stringify(reqQuery);
     queryStr=queryStr.replace(/\b(gt|gte|lt|lte|in)\b/g,match=>`$${match}`);
-    query = Hospital.find(JSON.parse(queryStr));
+    query = Hospital.find(JSON.parse(queryStr)).populate('appointments');
 
     //select query
     if(req.query.select){
@@ -39,7 +39,7 @@ exports.getHospitals = async (req, res, next) => {
 
     //Pagination
     const page = parseInt(req.query.page,10)||1;
-    const limit = parseInt(req.query,10)||25;
+    const limit = parseInt(req.query.limit,10)||25;
     const startIndex=(page-1)*limit;
     const endIndex=page*limit;
     const total=await Hospital.countDocuments () ;
@@ -76,7 +76,7 @@ exports.getHospitals = async (req, res, next) => {
 
 exports.getHospital = async (req, res, next) => {
     try{
-        const hospital = await Hospital.findById(req.params.id);
+        const hospital = await Hospital.findById(req.params.id).populate('appointments');
 
         if(!hospital){
             res.status(400).json({success:false});
@@ -130,11 +130,13 @@ exports.updateHospital = async(req, res, next) => {
 
 exports.deleteHospital = async(req, res, next) => {
     try{
-        const hospital = await Hospital.findByIdAndDelete(req.params.id);
+        const hospital = await Hospital.findById(req.params.id);
 
         if(!hospital){
             res.status(400).json({success:false});
         }
+        await Appointment.deleteMany({ hospital: req.params.id });
+        await Hospital.deleteOne({ _id: req.params._id });
 
         res.status(200).json({success:true,data:{}});
     }catch(err){
